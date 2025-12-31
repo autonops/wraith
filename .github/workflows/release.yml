@@ -77,8 +77,8 @@ jobs:
           file: ./Dockerfile.server
           push: true
           tags: |
-            autonops/wraith-server:${{ steps.version.outputs.VERSION }}
-            autonops/wraith-server:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/wraith-server:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/wraith-server:latest
 
   release:
     needs: [build-daemon, build-server-image]
