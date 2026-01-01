@@ -17,6 +17,7 @@
 
 mod clickhouse;
 mod config;
+mod dashboard_routes;
 mod models;
 mod nats;
 mod routes;
@@ -26,6 +27,7 @@ use axum::{
     Router,
 };
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -67,6 +69,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let consumer = ClickHouseConsumer::new(&config).await?;
     consumer.init_schema().await?;
     
+    // Create ClickHouse client for dashboard queries
+    let clickhouse_client = Arc::new(
+        ::clickhouse::Client::default()
+            .with_url(&config.clickhouse_url)
+    );
+    
     tokio::spawn(async move {
         if let Err(e) = consumer.run().await {
             tracing::error!("Consumer error: {}", e);
@@ -84,6 +92,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Event ingestion
         .route("/events", post(ingest_batch))
         .route("/event", post(ingest_single))
+        // Dashboard API
+        .nest("/api/dashboard", dashboard_routes::dashboard_router(clickhouse_client))
         // Middleware
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
