@@ -85,19 +85,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let state = AppState { nats };
     
     // Build router
-    let app = Router::new()
-        // Health checks
-        .route("/health", get(health))
-        .route("/ready", get(ready))
-        // Event ingestion
-        .route("/events", post(ingest_batch))
-        .route("/event", post(ingest_single))
-        // Dashboard API
-        .nest("/api/dashboard", dashboard_routes::dashboard_router(clickhouse_client))
-        // Middleware
-        .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
-        .with_state(state);
+    // Build router
+let app = Router::new()
+    // Health checks
+    .route("/health", get(health))
+    .route("/ready", get(ready))
+    // Event ingestion
+    .route("/events", post(ingest_batch))
+    .route("/event", post(ingest_single))
+    // Apply state to routes that need it
+    .with_state(state)
+    // Dashboard API (doesn't need AppState, uses its own ClickHouse client)
+    .nest("/api/dashboard", dashboard_routes::dashboard_router(clickhouse_client))
+    // Middleware (must come last)
+    .layer(TraceLayer::new_for_http())
+    .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any));
     
     // Start server
     let addr: SocketAddr = config.server_addr().parse()?;
